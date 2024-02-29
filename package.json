@@ -1,0 +1,16 @@
+{
+  "name": "pngtoapng",
+  "version": "1.0.0",
+  "description": "png file to apng",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "icecubes",
+  "license": "MIT",
+  "dependencies": {
+    "crc": "^4.3.2",
+    "pngjs": "^7.0.0",
+    "zlib": "^1.0.5"
+  }
+}
