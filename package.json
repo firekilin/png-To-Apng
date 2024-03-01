@@ -4,12 +4,15 @@
   "description": "png file to apng",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "esbuild index.js --bundle --minify --outfile=dist/index.js --platform=node"
   },
   "author": "icecubes",
   "license": "MIT",
   "dependencies": {
     "crc": "^4.3.2",
+    "esbuild": "^0.20.1",
+    "gif-frames": "^1.0.1",
     "pngjs": "^7.0.0",
     "zlib": "^1.0.5"
   }

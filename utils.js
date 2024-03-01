@@ -2,6 +2,8 @@ const crc = require ('crc'); // 引入crc库
 const { Readable } = require ('stream');
 const PNG = require ('pngjs').PNG;
 const zlib = require ('zlib');
+const fs = require ('fs');
+const GIFReader = require ('gif-frames');
 /**組成cunk*/
 class cunk{
   /**cunk
@@ -47,51 +49,9 @@ class BufferToStream extends Readable {
 }
 
 
-let pngToApngRGB = (file) => {
-  return new Promise ((resolve, reject) => {
-    const imgStream = new BufferToStream (file);
-    imgStream
-      .pipe (new PNG ())
-      .on ('parsed', function() {
-        // PNG 文件已解析完成
-        const pngBuffer = this.data;
-        const modifiedData = [];
-        const bytesPerRow = this.width * 4; // 每個點占用4字節
 
-        // 將每行進行處理
-        for (let i = 0; i < this.height; i ++) {
-          const startIndex = i * bytesPerRow;
-          const rowData = pngBuffer.slice (startIndex, startIndex + bytesPerRow);
-          // 行首的 '00'  使用原始RGB 方式 #ffffffff
-          let test = Buffer.alloc (1);
-          test.writeUInt8 (0, 0);
-          modifiedData.push (test);
-          // 添加原始資料 #ffffffff
-          modifiedData.push (rowData);
-              
-        }
-          
-        // 合并所有数据并创建新的 Buffer
-        const modifiedBuffer = Buffer.concat (modifiedData);
-        zlib.deflate (modifiedBuffer, (err, compressedData) => {
-          if (err) {
-            console.error ('壓縮錯誤:', err);
-            return;
-          }
-          resolve (compressedData);
-        });
-          
-      })
-      .on ('error', function(err) {
-        console.error ('Error:', err);
-      });
-
-  });
-        
-   
-};
 /**
- * 
+ * 取得解析圖片
  * @param {Buffer} file 
  * @returns data,width,height
  */
@@ -108,6 +68,11 @@ let getImgFileData = (file) => {
   });
 };
 
+/**
+ * 壓縮
+ * @param {Buffer} 圖片源代碼
+ * @returns {Buffer}
+ */
 let getZlibDeflate = (bf) => {
   return new Promise ((resolve, reject) => {
     zlib.deflate (bf, (err, compressedData) => {
@@ -120,12 +85,63 @@ let getZlibDeflate = (bf) => {
   });
 };
 
-let pngToApngPETL = async (files) => {
+
+let RGBA = async (files) => {
+  let fileBuffer = [];
+  let width = 0;
+  let height = 0;
+  let length = files.length;
+  for (let i = 0;i < files.length;i ++){
+
+    let img = await getImgFileData (files[i]);
+    if (width != 0 && width != img.width || height != 0 && height != img.height){
+      throw 'errorSize';
+    } else {
+      width = img.width;
+      height = img.height;
+    }
+    // PNG 文件已解析完成
+    const pngBuffer = img.data;
+    const modifiedData = [];
+    const bytesPerRow = img.width * 4; // 每個點占用4字節
+
+    // 將每行進行處理
+    for (let i = 0; i < img.height; i ++) {
+      const startIndex = i * bytesPerRow;
+      const rowData = pngBuffer.slice (startIndex, startIndex + bytesPerRow);
+      // 行首的 '00'  使用原始RGB 方式 #ffffffff
+      let test = Buffer.alloc (1);
+      test.writeUInt8 (0, 0);
+      modifiedData.push (test);
+      // 添加原始資料 #ffffffff
+      modifiedData.push (rowData);
+          
+    }
+    // 合并所有数据并创建新的 Buffer
+    const modifiedBuffer = Buffer.concat (modifiedData);
+    fileBuffer.push (await getZlibDeflate (modifiedBuffer));
+  }
+  return {
+    fileBuffer: fileBuffer, width: width, height: height, length: length
+  };
+};
+
+
+let PETL = async (files) => {
   let PLTE = []; //PLTE取得 無透明色 使用 push
   let tRNS = []; //tRNS取得 有透明色 使用 unshift 並且 unshift RGB 倒PLTE
   let PLTEtRNS = []; //兩者皆保存用於運算
+  let width = 0;
+  let height = 0;
+  let length = files.length;
   for (let i = 0;i < files.length;i ++){
     let img = await getImgFileData (files[i]);
+    if (width != 0 && width != img.width || height != 0 && height != img.height){
+      throw 'errorSize';
+    } else {
+      width = img.width;
+      height = img.height;
+    }
     // PNG 文件已解析完成
     let pngBuffer = img.data;
     for (let j = 0; j < pngBuffer.length; j += 4) {
@@ -187,19 +203,71 @@ let pngToApngPETL = async (files) => {
       buffer.push (point);
     }
     let modifiedBuffer = Buffer.concat (buffer);
-    console.log (modifiedBuffer.toString ('hex'));
 
     fileBuffer.push (await getZlibDeflate (modifiedBuffer));
         
   }
   return {
-    PLTE: PLTE, tRNS: tRNS, fileBuffer: fileBuffer
+    PLTE: PLTE, tRNS: tRNS, fileBuffer: fileBuffer, width: width, height: height, length: length
   };
     
 };
 
+
+let gifToPngList = async(inputGifBuffer) => {
+  // 将 GIF 缓冲区写入临时文件
+  const tempGifPath = 'temp.gif';
+  fs.writeFileSync (tempGifPath, inputGifBuffer);
+
+  // 从临时文件读取 GIF 数据并转换为 PNG
+
+  const frames = await GIFReader ({
+    url: tempGifPath, frames: 'all', outputType: 'png' 
+  });
+
+  let pngBuffers = [];
+  for (let index = 0; index < frames.length; index ++) {
+    const frameData = frames[index];
+    const png = new PNG ({
+      width: frameData.frameInfo.width,
+      height: frameData.frameInfo.height,
+      bitDepth: 8,
+      colorType: 6 // RGBA
+    });
+
+    png.data = await frameData.getImage ().data;
+    // 将 PNG 数据存储在内存中的 Buffer 数组中
+    const pngBuffer = await new Promise ((resolve, reject) => {
+      const buffers = [];
+      png.pack ().on ('data', (data) => {return buffers.push (data);})
+        .on ('end', () => {return resolve (Buffer.concat (buffers));})
+        .on ('error', reject);
+    });
+    pngBuffers.push (pngBuffer);
+  }
+
+  // 删除临时文件
+  fs.unlinkSync (tempGifPath);
+  return pngBuffers;
+};
+
+let gifRGBA = async (inputGifBuffer) => {
+  let pngBuffers = await gifToPngList (inputGifBuffer);
+  return await RGBA (pngBuffers);
+};
+
+
+let gifPETL = async (inputGifBuffer) => {
+  let pngBuffers = await gifToPngList (inputGifBuffer);
+  return await PETL (pngBuffers);
+};
+
+
+
 module.exports = {
   cunk: cunk,
-  pngToApngRGB: pngToApngRGB,
-  pngToApngPETL: pngToApngPETL
+  RGBA: RGBA,
+  PETL: PETL,
+  gifRGBA: gifRGBA,
+  gifPETL: gifPETL
 };

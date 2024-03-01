@@ -1,27 +1,73 @@
-# 尚未完成
-## 目前可以使用1.png 及 2.png
+#  pngToApng or gifToApng  轉動圖png
+### [抖內](https://p.ecpay.com.tw/8E29ABF)
 
+## pngToApng
 ````
-node index.js -> use RGBA  
-node indexPLTE.js -> use PLTE tRNS ,  filtering all use 00 
+  let demo = require ('./dist/index');
+  //pngToApng RGBA
+  await demo.pngToApngRGBA (pngImgBuffer).then (data => {
+    fs.writeFileSync ('./output/output1.png', data);
+  });
+
+  //pngToApng PLTE
+  await demo.pngToApngPLTE (pngImgBuffer).then (data => {
+    fs.writeFileSync ('./output/output2.png', data);
+  });
 ````
+## gifToApng
+````
+  let demo = require ('./dist/index');
+  //pngToApng RGBA
+  await demo.pngToApngRGBA (pngImgBuffer).then (data => {
+    fs.writeFileSync ('./output/output1.png', data);
+  });
 
-
+  //pngToApng PLTE
+  await demo.pngToApngPLTE (pngImgBuffer).then (data => {
+    fs.writeFileSync ('./output/output2.png', data);
+  });
+````
+## 原理說明 PNG cunk 順序  個人筆記
+````
 png
-	pngSignature
-		89 50 4E 47 0D 0A 1A 0A
+	pngSignature 
 	IHDR
-		寬度
-		高度
-		深度 通常6
-		壓縮方法
-		濾波器方法
-		隔行掃描方式
 	IDAT 
-		圖片資料
-		使用pngjs解出
-		00000000 00000000 00000000 這樣為三點陣 無換行資訊
+````
+### pngSignature 固定 PNG類型
+````
+89 50 4E 47 0D 0A 1A 0A
+````
+### cunk 固定格式 除pngSignature外
+````
+byte(size)
+	4   length 內容長度
+	4   type   cunk 類型名稱 (IHDR、IDAT....)
+	x   content 資料內容
+	4   CRC	CRC32(type + content)
+````
+### IHDR Cunk 圖片基本資訊
+````
+byte
+	0   width	寬度
+	4   height	高度
+	8   bitDepth	顏色深度 通常8
+	9   colorType	顏色類型 通常 6（真彩色） APNG PLTE 需為 3
+	10  compressionMethod	壓縮方法
+	11  filterMethod	濾波器
+	12  filterinterlaceMethodMethod	隔行掃描方式
+````
+### IDAT Cunk 圖片內容
+````
+byte
+	0   圖片資訊
 
+// 加密資料 使用pngjs解出為
+// 00000000 00000000 00000000 這樣為三點陣 RGBA  無Flitering
+````
+
+## 原理說明 APNG cunk 順序
+````
 apng
 	pngSignature
 		89 50 4E 47 0D 0A 1A 0A
@@ -56,18 +102,16 @@ apng
 			2	Up	Filt(x) = Orig(x) - Orig(b)	Recon(x) = Filt(x) + Recon(b) 上方
 			3	Average	Filt(x) = Orig(x) - floor((Orig(a) + Orig(b)) / 2)	Recon(x) = Filt(x) + floor((Recon(a) + Recon(b)) / 2)
 			4	Paeth	Filt(x) = Orig(x) - PaethPredictor(Orig(a), Orig(b), Orig(c))	Recon(x) = Filt(x) + PaethPredictor(Recon(a), Recon(b), Recon(c))
-			
-		
-	TCAT
+	fcTL
+	fdAT(IDAT)
+	fcTL
+	fdAT(IDAT)
+	....
+````
 	
-	TDAT
-	
-	
-		
-
-
-
-演算法(將一般png 解析出來)
+# 我使用的PLTE方式	
+````
+將每張 png 解析出來
 
 舉例
 一張1*5的點陣圖
@@ -86,49 +130,19 @@ ffffff
 tRNS
 08
 
-點陣資訊為
-01 01 00 01 01 fd
+目前無使用filtering
+點陣資訊將為
+00 01 01 02 03 00
 
 
-嘗試1 
-先將圖片點陣資訊
-保存進入PLTE 及 tRNS
-
-PLTE=[]   PLTE取得 無透明色 使用 push
-tRNS=[]   tRNS取得 有透明色 使用 unshift 並且 unshift RGB 倒PLTE
-PLTEtRNS = [] 兩者皆保存用於運算
-
-for (let i = 0; i < pixelData.length; i += 8) {
-    let rgb=color.slice(i,i+6);
-    let a=color.slice(i+6,i+8);
-	let rgba =color.slice(i,i+8);
-
-    // 添加顏色到 PLTE，如果不是透明的話
-    if (a === 0xff) {
-		if(!PLTEtRNS.includes(rgba){
-			PLTEtRNS.push(rgba));
-			PLTE.push(rgb);
-		} 
-    }
-
-    // 添加透明度到 tRNS
-    if (a < 0xff) {
-		if(!PLTEtRNS.includes(rgba){
-			PLTEtRNS.unshift(rgba));
-			tRNS.unshift(a);
-			PLTE.unshift(rgb);
-		} 
-    }
-}
-
-不使用filter 方式進行儲存 
-
-
-
-
-
-
+````
+# filtering
+````
 
 使用filter方式進行儲存圖片
 使用01 及 02 及 04
 依照上方顏色 或 左方顏色 或 左上顏色 進行處理  03 過於複雜 不進行處理
+
+````
+
+
