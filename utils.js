@@ -32,6 +32,135 @@ class cunk{
   }
 }
 
+
+/**
+ * to Apng use PLTE to save
+ * @param {Object} arges 
+ * 
+ ````
+  {
+    bitDepth: 8, // 顏色深度
+    colorType: 6, // 顏色類型
+    compressionMethod: 0, // 壓縮方法
+    filterMethod: 0, // 濾波器
+    interlaceMethod: 0, // 隔行掃描方式
+    numPlays: 0, // 設定循環次數 0為無限次
+    fc: [{
+      xOffset: 0, // X 偏移
+      yOffset: 0, // Y 偏移
+      delayNum: 20, // 延遲時間分子
+      delayDen: 100, // 延遲時間分母
+      disposeOp: 0, // Dispose 操作 0不進行處理 1完全清除 2 渲染回上一個
+      blendOp: 0, // Blend 操作 0覆蓋所有顏色  1混和顏色
+    }]
+  }
+````
+ * @param {Buffer} gifBuffer
+ * @returns Apng Buffer
+ */
+let getApng = async(imgBuffer, arges) => {
+
+  //step 1 pngSignature
+  const pngSignature = Buffer.from ([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+  //step 2 create IHDR
+  const width = imgBuffer.width; // 寬度
+  const height = imgBuffer.height; // 高度
+
+  const ihdr = Buffer.alloc (13); // 建立 Buffer
+  ihdr.writeUInt32BE (width, 0); // 寬度
+  ihdr.writeUInt32BE (height, 4); // 高度
+  ihdr.writeUInt8 (arges.bitDepth, 8); // 顏色深度
+  ihdr.writeUInt8 (arges.colorType, 9); // 顏色類型
+  ihdr.writeUInt8 (arges.compressionMethod, 10); // 壓縮方法
+  ihdr.writeUInt8 (arges.filterMethod, 11); // 濾波器
+  ihdr.writeUInt8 (arges.interlaceMethod, 12); // 隔行掃描方式
+  const ihdrChunk = new cunk ('IHDR', ihdr);
+  
+  //step 3 create acTL
+  const numFrames = imgBuffer.length; // 設定數量
+  const acTL = Buffer.alloc (8);
+  acTL.writeUInt32BE (numFrames, 0);
+  acTL.writeUInt32BE (arges.numPlays, 4);
+  const acTLCunk = new cunk ('acTL', acTL);
+
+  let PLTECunk = null;
+  let tRNSCunk = null;
+  if (imgBuffer.PLTE){
+    PLTECunk = new cunk ('PLTE', Buffer.concat (imgBuffer.PLTE));
+  }
+  if (imgBuffer.tRNS){
+    tRNSCunk = new cunk ('tRNS', Buffer.concat ( imgBuffer.tRNS));
+  }
+
+  //step 6 迴圈 第一圈 圖片 IDAT
+  let sequenceNumber = 0; // 序號
+
+    
+  let bodyBuffer = [];
+  for (let i = 0;i < imgBuffer.fileBuffer.length;i ++){
+    let fcTL = Buffer.alloc (26);
+    fcTL.writeUInt32BE (sequenceNumber, 0);
+    fcTL.writeUInt32BE (width, 4);
+    fcTL.writeUInt32BE (height, 8);
+    fcTL.writeUInt32BE (arges.fc[i].xOffset, 12);
+    fcTL.writeUInt32BE (arges.fc[i].yOffset, 16);
+    fcTL.writeUint16BE (arges.fc[i].delayNum, 20);
+    fcTL.writeUint16BE (arges.fc[i].delayDen, 22);
+    fcTL.writeInt8 (arges.fc[i].disposeOp, 24);
+    fcTL.writeInt8 (arges.fc[i].blendOp, 25);
+    let fcTLCunk = new cunk ('fcTL', fcTL);
+    sequenceNumber ++;
+    bodyBuffer.push (fcTLCunk.getBuffer ());
+    if (i == 0){
+
+      let IDAT = new cunk ('IDAT', imgBuffer.fileBuffer[i]);
+      bodyBuffer.push (IDAT.getBuffer ());
+    } else {
+      let fdAT = Buffer.alloc (imgBuffer.fileBuffer[i].length + 4);
+      fdAT.writeUInt32BE (sequenceNumber, 0);
+      imgBuffer.fileBuffer[i].copy (fdAT, 4);
+      let fdATCunk = new cunk ('fdAT', fdAT);
+      bodyBuffer.push (fdATCunk.getBuffer ());
+      sequenceNumber ++;
+    }
+  }
+    
+  let bodyLen = 0;
+  bodyBuffer.forEach (obj => {bodyLen += obj.length;});
+  beforeLen = 0;
+  let body = Buffer.alloc (bodyLen);
+  for (let i = 0;i < bodyBuffer.length;i ++){
+    bodyBuffer[i].copy (body, beforeLen);
+    beforeLen += bodyBuffer[i].length;
+  }
+    
+  //step 7 IEND
+  let IEND = Buffer.alloc (0);
+  let IENDCunk = new cunk ('IEND', IEND);
+  let apngData = null;
+  if (PLTECunk ){
+    apngData = Buffer.concat ([pngSignature,
+      ihdrChunk.getBuffer (),
+      acTLCunk.getBuffer (),
+      PLTECunk.getBuffer (),
+      tRNSCunk.getBuffer (),
+      body,
+      IENDCunk.getBuffer ()]);
+  } else {
+    apngData = Buffer.concat ([pngSignature,
+      ihdrChunk.getBuffer (),
+      acTLCunk.getBuffer (),
+      body,
+      IENDCunk.getBuffer ()]);
+  }
+ 
+  return apngData;
+};
+
+
+
+
+
 class BufferToStream extends Readable {
   constructor(buffer) {
     super ();
@@ -47,8 +176,6 @@ class BufferToStream extends Readable {
     this.pos ++;
   }
 }
-
-
 
 /**
  * 取得解析圖片
@@ -256,7 +383,6 @@ let gifRGBA = async (inputGifBuffer) => {
   return await RGBA (pngBuffers);
 };
 
-
 let gifPETL = async (inputGifBuffer) => {
   let pngBuffers = await gifToPngList (inputGifBuffer);
   return await PETL (pngBuffers);
@@ -269,5 +395,6 @@ module.exports = {
   RGBA: RGBA,
   PETL: PETL,
   gifRGBA: gifRGBA,
-  gifPETL: gifPETL
+  gifPETL: gifPETL,
+  getApng: getApng
 };
