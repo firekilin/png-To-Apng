@@ -6,7 +6,7 @@ node index.js -> use RGBA
 node indexPLTE.js -> use PLTE tRNS ,  filtering all use 00 
 ````
 
-
+````
 png
 	pngSignature
 		89 50 4E 47 0D 0A 1A 0A
@@ -123,7 +123,7 @@ for (let i = 0; i < pixelData.length; i += 8) {
 
 不使用filter 方式進行儲存 
 
-
+````
 
 
 
