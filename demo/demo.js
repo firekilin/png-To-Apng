@@ -36,7 +36,7 @@ let run = async() => {
   
   });
 
-  /*  客製化
+  /*  option
  {
     allDelayNum:null, //如果有值 統一秒數 x/100 秒
     allBlendOp:null, //如果有值 統一混色
@@ -57,7 +57,7 @@ let run = async() => {
   }
   */
   //gifToApng RGBA
-  await demo.gifToApngRGBA (gifImgBuffer, 
+  demo.gifToApngRGBA (gifImgBuffer, 
     { 'numPlays': 5,
       'fc': [
         { 'delayNum': 10, 'delayDen': 100 },

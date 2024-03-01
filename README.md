@@ -1,44 +1,82 @@
 #  pngToApng or gifToApng  轉動圖png
 ### [抖內](https://p.ecpay.com.tw/8E29ABF)
 
-## pngToApng
+# pngToApng
 ````
   let demo = require ('./dist/index');
   //pngToApng RGBA
-  await demo.pngToApngRGBA (pngImgBuffer).then (data => {
+  demo.pngToApngRGBA (pngImgBuffer).then (data => {
     fs.writeFileSync ('./output/output1.png', data);
   });
 
   //pngToApng PLTE
-  await demo.pngToApngPLTE (pngImgBuffer).then (data => {
+  demo.pngToApngPLTE (pngImgBuffer).then (data => {
     fs.writeFileSync ('./output/output2.png', data);
   });
 ````
-## gifToApng
+# gifToApng
 ````
   let demo = require ('./dist/index');
   //pngToApng RGBA
-  await demo.pngToApngRGBA (pngImgBuffer).then (data => {
+  demo.pngToApngRGBA (pngImgBuffer).then (data => {
     fs.writeFileSync ('./output/output1.png', data);
   });
 
   //pngToApng PLTE
-  await demo.pngToApngPLTE (pngImgBuffer).then (data => {
+  demo.pngToApngPLTE (pngImgBuffer).then (data => {
     fs.writeFileSync ('./output/output2.png', data);
   });
 ````
-## 原理說明 PNG cunk 順序  個人筆記
+# option
+````
+  /*  option
+ {
+    allDelayNum:null, //如果有值 統一秒數 x/100 秒
+    allBlendOp:null, //如果有值 統一混色
+    bitDepth: 8, // 顏色深度
+    colorType: 6, // 顏色類型
+    compressionMethod: 0, // 壓縮方法
+    filterMethod: 0, // 濾波器
+    interlaceMethod: 0, // 隔行掃描方式
+    numPlays: 0, // 設定循環次數 0為無限次
+    fc: [{
+      xOffset: 0, // X 偏移
+      yOffset: 0, // Y 偏移
+      delayNum: 20, // 延遲時間分子 單獨設定可蓋過 統一秒數
+      delayDen: 100, // 延遲時間分母 單獨設定可蓋過 統一秒數
+      disposeOp: 0, // Dispose 操作 0不進行處理 1完全清除 2 渲染回上一個
+      blendOp: 0, // Blend 操作 0覆蓋所有顏色  1混和顏色  單獨設定可蓋過 統一混色
+    }]
+  }
+  */
+  //gifToApng RGBA
+  demo.gifToApngRGBA (gifImgBuffer, 
+    { 'numPlays': 5,
+      'fc': [
+        { 'delayNum': 10, 'delayDen': 100 },
+        { 'delayNum': 20, 'delayDen': 100 }
+      ] })
+    .then (data => {
+      fs.writeFileSync ('./output/output5.png', data);
+    });
+
+````
+
+
+
+
+# 原理說明 PNG cunk 順序  個人筆記
 ````
 png
 	pngSignature 
 	IHDR
 	IDAT 
 ````
-### pngSignature 固定 PNG類型
+# pngSignature 固定 PNG類型
 ````
 89 50 4E 47 0D 0A 1A 0A
 ````
-### cunk 固定格式 除pngSignature外
+# cunk 固定格式 除pngSignature外
 ````
 byte(size)
 	4   length 內容長度
@@ -46,7 +84,7 @@ byte(size)
 	x   content 資料內容
 	4   CRC	CRC32(type + content)
 ````
-### IHDR Cunk 圖片基本資訊
+# IHDR Cunk 圖片基本資訊
 ````
 byte
 	0   width	寬度
@@ -57,7 +95,7 @@ byte
 	11  filterMethod	濾波器
 	12  filterinterlaceMethodMethod	隔行掃描方式
 ````
-### IDAT Cunk 圖片內容
+# IDAT Cunk 圖片內容
 ````
 byte
 	0   圖片資訊
@@ -66,7 +104,7 @@ byte
 // 00000000 00000000 00000000 這樣為三點陣 RGBA  無Flitering
 ````
 
-## 原理說明 APNG cunk 順序
+# 原理說明 APNG cunk 順序
 ````
 apng
 	pngSignature
