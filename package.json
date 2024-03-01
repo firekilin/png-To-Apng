@@ -1,6 +1,6 @@
 {
   "name": "png-to-apng",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "png-to-apng,gif-to-apng",
   "main": "dist/index.js",
   "scripts": {
@@ -15,5 +15,7 @@
     "gif-frames": "^1.0.1",
     "pngjs": "^7.0.0",
     "zlib": "^1.0.5"
-  }
+  },
+  "homepage": "https://github.com/firekilin/png-To-Apng"
+
 }
