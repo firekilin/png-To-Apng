@@ -1,8 +1,8 @@
 {
-  "name": "pngtoapng",
+  "name": "png-to-apng",
   "version": "1.0.0",
-  "description": "png file to apng",
-  "main": "index.js",
+  "description": "png-to-apng,gif-to-apng",
+  "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "esbuild index.js --bundle --minify --outfile=dist/index.js --platform=node"
